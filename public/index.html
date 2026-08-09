@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Hyper-Local Pet Rescue & Foster Platform</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
+    h1 { color: #1a252f; border-bottom: 3px solid #2980b9; padding-bottom: 10px; margin-top: 0; }
+    .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ccc; padding-bottom: 10px; }
+    .tab-btn { padding: 10px 20px; border: none; background: #bdc3c7; color: #2c3e50; font-weight: bold; cursor: pointer; border-radius: 5px; }
+    .tab-btn.active { background: #2980b9; color: white; }
+    .workspace { display: none; }
+    .workspace.active { display: block; }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+    .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    h2 { margin-top: 0; color: #2c3e50; font-size: 1.2rem; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+    label { font-size: 0.9rem; font-weight: bold; color: #555; }
+    select, input, button { width: 100%; padding: 10px; margin: 8px 0 16px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    button { background: #27ae60; color: white; font-weight: bold; border: none; cursor: pointer; transition: 0.2s; }
+    button:hover { background: #219150; }
+    .token-banner { background: #e8f8f5; border: 1px solid #2ecc71; color: #27ae60; padding: 10px; border-radius: 5px; margin-bottom: 20px; font-family: monospace; }
+    pre { background: #282c34; color: #abb2bf; padding: 12px; border-radius: 5px; overflow-x: auto; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+
+  <h1>Hyper-Local Pet Foster & Rescue Platform</h1>
+
+  <!-- Role Token Selector -->
+  <div class="card" style="margin-bottom: 20px;">
+    <label for="userRole">Active Session Role & Simulated Auth Token:</label>
+    <select id="userRole" onchange="switchRole()">
+      <option value="admin">Shelter Admin (Token: Bearer admin-secret-token)</option>
+      <option value="foster">Foster Caregiver (Token: Bearer foster-secret-token)</option>
+      <option value="adopter">Adopter (Token: Bearer adopter-secret-token)</option>
+    </select>
+    <div id="tokenDisplay" class="token-banner">Active Token: Bearer admin-secret-token</div>
+  </div>
+
+  <!-- Role Navigation Tabs -->
+  <div class="nav-tabs">
+    <button id="btn-admin" class="tab-btn active" onclick="showWorkspace('admin')">Admin Workspace</button>
+    <button id="btn-foster" class="tab-btn" onclick="showWorkspace('foster')">Foster Workspace</button>
+    <button id="btn-adopter" class="tab-btn" onclick="showWorkspace('adopter')">Adopter Workspace</button>
+  </div>
+
+  <!-- 1. SHELTER ADMIN WORKSPACE -->
+  <div id="workspace-admin" class="workspace active">
+    <div class="card-grid">
+      <div class="card">
+        <h2>FSM Lifecycle Transition</h2>
+        <label>Pet ID 1 (Rex) New State:</label>
+        <select id="fsmStatus">
+          <option value="In Medical Isolation">In Medical Isolation</option>
+          <option value="Available for Foster">Available for Foster</option>
+          <option value="Fostered">Fostered</option>
+          <option value="Pending Adoption">Pending Adoption</option>
+          <option value="Adopted">Adopted</option>
+        </select>
+        <button onclick="updatePetStatus()">Transition Pet State</button>
+        <pre id="fsmOutput">Awaiting action...</pre>
+      </div>
+
+      <div class="card">
+        <h2>Adoption Pipeline Review</h2>
+        <label>Application ID 1 Target Stage:</label>
+        <select id="appStage">
+          <option value="Background Check Completed">Background Check Completed</option>
+          <option value="Home Video Verified">Home Video Verified</option>
+          <option value="Approved">Approved</option>
+        </select>
+        <button onclick="advancePipeline()">Advance Stage</button>
+        <pre id="pipelineOutput">Awaiting action...</pre>
+      </div>
+
+      <div class="card">
+        <h2>Multi-Criteria Match Engine</h2>
+        <p>Rank compatible fosters for Rex (ID: 1):</p>
+        <button onclick="runMatching()">Run Match Engine</button>
+        <pre id="matchOutput">Click to calculate compatibility...</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. FOSTER CAREGIVER WORKSPACE -->
+  <div id="workspace-foster" class="workspace">
+    <div class="card-grid">
+      <div class="card">
+        <h2>Medical Care Checklist</h2>
+        <label>Medication Name:</label>
+        <input type="text" id="medName" placeholder="e.g., Antibiotics">
+        <label>Dosage:</label>
+        <input type="text" id="medDosage" placeholder="e.g., 50mg">
+        <button onclick="addMedicalLog()">Log Medical Entry</button>
+        <button onclick="viewMedicalLogs()" style="background: #2980b9;">Fetch Pet Medical History</button>
+        <pre id="medicalOutput">Awaiting action...</pre>
+      </div>
+
+      <div class="card">
+        <h2>Supply Replenishment Request</h2>
+        <label>Item Category:</label>
+        <input type="text" id="supplyItem" placeholder="e.g., Puppy Food">
+        <label>Quantity:</label>
+        <input type="number" id="supplyQty" value="1">
+        <button onclick="requestSupply()">Submit Supply Order</button>
+        <pre id="supplyOutput">Awaiting action...</pre>
+      </div>
+
+      <div class="card">
+        <h2>Nearby Supply Pickup Points</h2>
+        <p>Locate distribution hubs within 5 km:</p>
+        <button onclick="findNearbyHubs()" style="background: #8e44ad;">Search Pickup Hubs</button>
+        <pre id="hubOutput">Click to run proximity query...</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. ADOPTER WORKSPACE -->
+  <div id="workspace-adopter" class="workspace">
+    <div class="card-grid">
+      <div class="card">
+        <h2>Submit Adoption Application</h2>
+        <label>Full Name:</label>
+        <input type="text" id="adopterName" placeholder="e.g., John Doe">
+        <button onclick="submitApplication()">Apply for Pet (Rex)</button>
+        <pre id="adopterOutput">Awaiting action...</pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  function switchRole() {
+    const role = document.getElementById('userRole').value;
+    document.getElementById('tokenDisplay').textContent = `Active Token: Bearer ${role}-secret-token`;
+    showWorkspace(role);
+  }
+
+  function showWorkspace(role) {
+    document.querySelectorAll('.workspace').forEach(w => w.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    
+    document.getElementById(`workspace-${role}`).classList.add('active');
+    document.getElementById(`btn-${role}`).classList.add('active');
+  }
+
+  // Helper function to render styled HTML output instead of raw JSON
+  function renderOutput(elementId, message, isError = false) {
+    const el = document.getElementById(elementId);
+    el.style.color = isError ? '#e74c3c' : '#2ecc71';
+    el.innerHTML = `<strong>${message}</strong>`;
+  }
+
+  async function updatePetStatus() {
+    const newStatus = document.getElementById('fsmStatus').value;
+    const res = await fetch('/api/pets/1/transition', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newStatus })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      renderOutput('fsmOutput', `Status updated to: ${data.pet.status}`);
+    } else {
+      renderOutput('fsmOutput', `Error: ${data.error}`, true);
+    }
+  }
+
+  async function advancePipeline() {
+    const newStage = document.getElementById('appStage').value;
+    const res = await fetch('/api/applications/1/advance', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newStage })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      renderOutput('pipelineOutput', `Pipeline stage moved to: ${data.application.stage}`);
+    } else {
+      renderOutput('pipelineOutput', `Error: ${data.error}`, true);
+    }
+  }
+
+  async function runMatching() {
+    const res = await fetch('/api/pets/1/matches');
+    const data = await res.json();
+    const container = document.getElementById('matchOutput');
+    
+    if (data.matches && data.matches.length > 0) {
+      container.innerHTML = data.matches.map(m => 
+        `<div style="color: #48dbfb;">• <strong>${m.fosterName}</strong> (Score: ${m.compatibilityScore}, Distance: ${m.distanceKm})</div>`
+      ).join('');
+    } else {
+      container.innerHTML = `<span style="color: #ff6b6b;">No eligible foster matches found.</span>`;
+    }
+  }
+
+  async function addMedicalLog() {
+    const medicationName = document.getElementById('medName').value;
+    const dosage = document.getElementById('medDosage').value;
+    const res = await fetch('/api/medical-logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ petId: 1, medicationName, dosage, notes: "Administered by Foster" })
+    });
+    if (res.ok) {
+      renderOutput('medicalOutput', `Logged: ${medicationName} (${dosage})`);
+    } else {
+      renderOutput('medicalOutput', 'Failed to log medical record', true);
+    }
+  }
+
+  async function viewMedicalLogs() {
+    const res = await fetch('/api/medical-logs/1');
+    const data = await res.json();
+    const container = document.getElementById('medicalOutput');
+    container.innerHTML = data.map(log => 
+      `<div style="color: #f1c40f;">• ${log.medicationName} - ${log.dosage} (${new Date(log.createdAt).toLocaleTimeString()})</div>`
+    ).join('') || 'No records found.';
+  }
+
+  async function requestSupply() {
+    const itemType = document.getElementById('supplyItem').value;
+    const quantity = document.getElementById('supplyQty').value;
+    const res = await fetch('/api/supply-requests', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fosterId: 1, itemType, quantity })
+    });
+    if (res.ok) {
+      renderOutput('supplyOutput', `Requested ${quantity}x ${itemType}`);
+    } else {
+      renderOutput('supplyOutput', 'Failed to submit order', true);
+    }
+  }
+
+  async function findNearbyHubs() {
+    const res = await fetch('/api/supply-hubs?lat=23.8103&lon=90.4125&radiusKm=5');
+    const data = await res.json();
+    const container = document.getElementById('hubOutput');
+    container.innerHTML = data.map(hub => 
+      `<div style="color: #1dd1a1;">• <strong>${hub.name}</strong> - ${hub.address} (${hub.distanceKm} km away)</div>`
+    ).join('') || 'No hubs within range.';
+  }
+
+  async function submitApplication() {
+    const adopterName = document.getElementById('adopterName').value;
+    const res = await fetch('/api/applications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adopterName, petId: 1 })
+    });
+    if (res.ok) {
+      renderOutput('adopterOutput', `Application submitted for ${adopterName}!`);
+    } else {
+      renderOutput('adopterOutput', 'Failed to submit application', true);
+    }
+  }
+</script>
+</body>
+</html>
