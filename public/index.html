@@ -6,7 +6,7 @@
   <style>
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
     h1 { color: #1a252f; border-bottom: 3px solid #2980b9; padding-bottom: 10px; margin-top: 0; }
-    .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ccc; padding-bottom: 10px; }
+    .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ccc; padding-bottom: 10px; align-items: center; }
     .tab-btn { padding: 10px 20px; border: none; background: #bdc3c7; color: #2c3e50; font-weight: bold; cursor: pointer; border-radius: 5px; }
     .tab-btn.active { background: #2980b9; color: white; }
     .workspace { display: none; }
@@ -18,175 +18,431 @@
     select, input, button { width: 100%; padding: 10px; margin: 8px 0 16px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
     button { background: #27ae60; color: white; font-weight: bold; border: none; cursor: pointer; transition: 0.2s; }
     button:hover { background: #219150; }
-    .token-banner { background: #e8f8f5; border: 1px solid #2ecc71; color: #27ae60; padding: 10px; border-radius: 5px; margin-bottom: 20px; font-family: monospace; }
+    .token-banner { background: #e8f8f5; border: 1px solid #2ecc71; color: #27ae60; padding: 10px; border-radius: 5px; margin-bottom: 20px; font-family: monospace; display: flex; justify-content: space-between; align-items: center; }
+    .token-banner button { width: auto; background: #e74c3c; padding: 6px 14px; margin: 0; }
     pre { background: #282c34; color: #abb2bf; padding: 12px; border-radius: 5px; overflow-x: auto; font-size: 0.85rem; }
+    .pet-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee; }
+    .pet-row .status { font-size: 0.8rem; padding: 3px 8px; border-radius: 10px; background: #eaf2fb; color: #2980b9; }
+    .error-msg { color: #e74c3c; font-size: 0.9rem; margin-top: -8px; margin-bottom: 12px; min-height: 1em; }
+    .auth-wrap { max-width: 420px; margin: 60px auto; }
+    .auth-toggle { display: flex; gap: 10px; margin-bottom: 16px; }
+    .auth-toggle button { background: #bdc3c7; color: #2c3e50; }
+    .auth-toggle button.active { background: #2980b9; color: white; }
+    .hint { font-size: 0.8rem; color: #888; margin: -10px 0 16px; }
+    .icon-btn { width: auto; display: inline-block; padding: 6px 12px; margin: 2px 4px 2px 0; font-size: 0.8rem; }
+    .icon-btn.danger { background: #e74c3c; }
+    .icon-btn.secondary { background: #7f8c8d; }
   </style>
 </head>
 <body>
 
   <h1>Hyper-Local Pet Foster & Rescue Platform</h1>
 
-  <!-- Role Token Selector -->
-  <div class="card" style="margin-bottom: 20px;">
-    <label for="userRole">Active Session Role & Simulated Auth Token:</label>
-    <select id="userRole" onchange="switchRole()">
-      <option value="admin">Shelter Admin (Token: Bearer admin-secret-token)</option>
-      <option value="foster">Foster Caregiver (Token: Bearer foster-secret-token)</option>
-      <option value="adopter">Adopter (Token: Bearer adopter-secret-token)</option>
-    </select>
-    <div id="tokenDisplay" class="token-banner">Active Token: Bearer admin-secret-token</div>
-  </div>
-
-  <!-- Role Navigation Tabs -->
-  <div class="nav-tabs">
-    <button id="btn-admin" class="tab-btn active" onclick="showWorkspace('admin')">Admin Workspace</button>
-    <button id="btn-foster" class="tab-btn" onclick="showWorkspace('foster')">Foster Workspace</button>
-    <button id="btn-adopter" class="tab-btn" onclick="showWorkspace('adopter')">Adopter Workspace</button>
-  </div>
-
-  <!-- 1. SHELTER ADMIN WORKSPACE -->
-  <div id="workspace-admin" class="workspace active">
-    <div class="card-grid">
-      <div class="card">
-        <h2>FSM Lifecycle Transition</h2>
-        <label>Pet ID 1 (Rex) New State:</label>
-        <select id="fsmStatus">
-          <option value="In Medical Isolation">In Medical Isolation</option>
-          <option value="Available for Foster">Available for Foster</option>
-          <option value="Fostered">Fostered</option>
-          <option value="Pending Adoption">Pending Adoption</option>
-          <option value="Adopted">Adopted</option>
-        </select>
-        <button onclick="updatePetStatus()">Transition Pet State</button>
-        <pre id="fsmOutput">Awaiting action...</pre>
+  <!-- ============================================================ -->
+  <!-- LOGIN / SIGNUP GATE — shown until a valid session exists      -->
+  <!-- ============================================================ -->
+  <div id="authGate" class="auth-wrap">
+    <div class="card">
+      <div class="auth-toggle">
+        <button id="toggleLogin" class="active" onclick="showAuthForm('login')">Log In</button>
+        <button id="toggleSignup" onclick="showAuthForm('signup')">Sign Up (Adopters Only)</button>
       </div>
 
-      <div class="card">
-        <h2>Adoption Pipeline Review</h2>
-        <label>Application ID 1 Target Stage:</label>
-        <select id="appStage">
-          <option value="Background Check Completed">Background Check Completed</option>
-          <option value="Home Video Verified">Home Video Verified</option>
-          <option value="Approved">Approved</option>
-        </select>
-        <button onclick="advancePipeline()">Advance Stage</button>
-        <pre id="pipelineOutput">Awaiting action...</pre>
+      <!-- LOGIN: used by Admin, Foster (DB-issued credentials) and Adopters -->
+      <div id="loginForm">
+        <label>Username / Account ID:</label>
+        <input type="text" id="loginUsername" placeholder="e.g. admin1, foster-2, or your adopter username">
+        <label>Password:</label>
+        <input type="password" id="loginPassword" placeholder="Password">
+        <div class="error-msg" id="loginError"></div>
+        <button onclick="doLogin()">Log In</button>
+        <p class="hint">Admin & Foster staff: use the Account ID and password given to you by the shelter — these accounts are created directly in the database, not through Sign Up.</p>
       </div>
 
-      <div class="card">
-        <h2>Multi-Criteria Match Engine</h2>
-        <p>Rank compatible fosters for Rex (ID: 1):</p>
-        <button onclick="runMatching()">Run Match Engine</button>
-        <pre id="matchOutput">Click to calculate compatibility...</pre>
+      <!-- SIGNUP: ADOPTERS ONLY -->
+      <div id="signupForm" style="display:none;">
+        <label>Choose a Username:</label>
+        <input type="text" id="signupUsername" placeholder="e.g. jane_doe">
+        <label>Choose a Password:</label>
+        <input type="password" id="signupPassword" placeholder="At least 6 characters">
+        <div class="error-msg" id="signupError"></div>
+        <button onclick="doSignup()">Create Adopter Account</button>
+        <p class="hint">This creates an Adopter account only. Shelter Admin and Foster accounts cannot be self-registered.</p>
       </div>
     </div>
   </div>
 
-  <!-- 2. FOSTER CAREGIVER WORKSPACE -->
-  <div id="workspace-foster" class="workspace">
-    <div class="card-grid">
-      <div class="card">
-        <h2>Medical Care Checklist</h2>
-        <label>Medication Name:</label>
-        <input type="text" id="medName" placeholder="e.g., Antibiotics">
-        <label>Dosage:</label>
-        <input type="text" id="medDosage" placeholder="e.g., 50mg">
-        <button onclick="addMedicalLog()">Log Medical Entry</button>
-        <button onclick="viewMedicalLogs()" style="background: #2980b9;">Fetch Pet Medical History</button>
-        <pre id="medicalOutput">Awaiting action...</pre>
-      </div>
+  <!-- ============================================================ -->
+  <!-- MAIN DASHBOARD — only shown after login                       -->
+  <!-- ============================================================ -->
+  <div id="dashboard" style="display:none;">
 
-      <div class="card">
-        <h2>Supply Replenishment Request</h2>
-        <label>Item Category:</label>
-        <input type="text" id="supplyItem" placeholder="e.g., Puppy Food">
-        <label>Quantity:</label>
-        <input type="number" id="supplyQty" value="1">
-        <button onclick="requestSupply()">Submit Supply Order</button>
-        <pre id="supplyOutput">Awaiting action...</pre>
-      </div>
+    <div id="tokenDisplay" class="token-banner">
+      <span id="sessionInfo">Logged in</span>
+      <button onclick="logout()">Log Out</button>
+    </div>
 
-      <div class="card">
-        <h2>Nearby Supply Pickup Points</h2>
-        <p>Locate distribution hubs within 5 km:</p>
-        <button onclick="findNearbyHubs()" style="background: #8e44ad;">Search Pickup Hubs</button>
-        <pre id="hubOutput">Click to run proximity query...</pre>
+    <!-- Role Navigation Tabs — only the tab(s) matching the user's role appear -->
+    <div class="nav-tabs" id="navTabs">
+      <button id="btn-admin" class="tab-btn" onclick="showWorkspace('admin')">Admin Workspace</button>
+      <button id="btn-foster" class="tab-btn" onclick="showWorkspace('foster')">Foster Workspace</button>
+      <button id="btn-adopter" class="tab-btn" onclick="showWorkspace('adopter')">Adopter Workspace</button>
+    </div>
+
+    <!-- 1. SHELTER ADMIN WORKSPACE (role: admin only) -->
+    <div id="workspace-admin" class="workspace">
+      <div class="card-grid">
+        <div class="card">
+          <h2>Animal Directory (Add / Edit / Delete)</h2>
+          <div id="adminPetList"></div>
+          <label>New Animal Name:</label>
+          <input type="text" id="newPetName" placeholder="e.g., Luna">
+          <label>Weight (kg):</label>
+          <input type="number" id="newPetWeight" value="10" step="0.1">
+          <label>Latitude:</label>
+          <input type="number" id="newPetLat" value="23.8103" step="0.0001">
+          <label>Longitude:</label>
+          <input type="number" id="newPetLon" value="90.4125" step="0.0001">
+          <button onclick="addPet()">Add New Animal</button>
+        </div>
+
+        <div class="card">
+          <h2>FSM Lifecycle Transition</h2>
+          <label>Pet ID:</label>
+          <input type="number" id="fsmPetId" value="1">
+          <label>New State:</label>
+          <select id="fsmStatus">
+            <option value="In Medical Isolation">In Medical Isolation</option>
+            <option value="Available for Foster">Available for Foster</option>
+            <option value="Fostered">Fostered</option>
+            <option value="Pending Adoption">Pending Adoption</option>
+            <option value="Adopted">Adopted</option>
+          </select>
+          <button onclick="updatePetStatus()">Transition Pet State</button>
+          <pre id="fsmOutput">Awaiting action...</pre>
+        </div>
+
+        <div class="card">
+          <h2>Adoption Pipeline Review</h2>
+          <label>Application ID Target Stage:</label>
+          <input type="number" id="appId" value="1">
+          <select id="appStage">
+            <option value="Background Check Completed">Background Check Completed</option>
+            <option value="Home Video Verified">Home Video Verified</option>
+            <option value="Approved">Approved</option>
+          </select>
+          <button onclick="advancePipeline()">Advance Stage</button>
+          <pre id="pipelineOutput">Awaiting action...</pre>
+        </div>
+
+        <div class="card">
+          <h2>Multi-Criteria Match Engine</h2>
+          <label>Pet ID:</label>
+          <input type="number" id="matchPetId" value="1">
+          <button onclick="runMatching()">Run Match Engine</button>
+          <pre id="matchOutput">Click to calculate compatibility...</pre>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- 3. ADOPTER WORKSPACE -->
-  <div id="workspace-adopter" class="workspace">
-    <div class="card-grid">
-      <div class="card">
-        <h2>Submit Adoption Application</h2>
-        <label>Full Name:</label>
-        <input type="text" id="adopterName" placeholder="e.g., John Doe">
-        <button onclick="submitApplication()">Apply for Pet (Rex)</button>
-        <pre id="adopterOutput">Awaiting action...</pre>
+    <!-- 2. FOSTER CAREGIVER WORKSPACE (role: foster only, admin can also view via Admin tab logic) -->
+    <div id="workspace-foster" class="workspace">
+      <div class="card-grid">
+        <div class="card">
+          <h2>Animal Directory (Add / Edit / Delete)</h2>
+          <div id="fosterPetList"></div>
+          <label>New Animal Name:</label>
+          <input type="text" id="fNewPetName" placeholder="e.g., Luna">
+          <label>Weight (kg):</label>
+          <input type="number" id="fNewPetWeight" value="10" step="0.1">
+          <label>Latitude:</label>
+          <input type="number" id="fNewPetLat" value="23.8103" step="0.0001">
+          <label>Longitude:</label>
+          <input type="number" id="fNewPetLon" value="90.4125" step="0.0001">
+          <button onclick="addPet('foster')">Add New Animal</button>
+        </div>
+
+        <div class="card">
+          <h2>Medical Care Checklist</h2>
+          <label>Pet ID:</label>
+          <input type="number" id="medPetId" value="1">
+          <label>Medication Name:</label>
+          <input type="text" id="medName" placeholder="e.g., Antibiotics">
+          <label>Dosage:</label>
+          <input type="text" id="medDosage" placeholder="e.g., 50mg">
+          <button onclick="addMedicalLog()">Log Medical Entry</button>
+          <button onclick="viewMedicalLogs()" style="background: #2980b9;">Fetch Pet Medical History</button>
+          <pre id="medicalOutput">Awaiting action...</pre>
+        </div>
+
+        <div class="card">
+          <h2>Supply Replenishment Request</h2>
+          <label>Item Category:</label>
+          <input type="text" id="supplyItem" placeholder="e.g., Puppy Food">
+          <label>Quantity:</label>
+          <input type="number" id="supplyQty" value="1">
+          <button onclick="requestSupply()">Submit Supply Order</button>
+          <pre id="supplyOutput">Awaiting action...</pre>
+        </div>
+
+        <div class="card">
+          <h2>Nearby Supply Pickup Points</h2>
+          <p>Locate distribution hubs within 5 km:</p>
+          <button onclick="findNearbyHubs()" style="background: #8e44ad;">Search Pickup Hubs</button>
+          <pre id="hubOutput">Click to run proximity query...</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. ADOPTER WORKSPACE (role: adopter only) — VIEW ONLY animal list + apply -->
+    <div id="workspace-adopter" class="workspace">
+      <div class="card-grid">
+        <div class="card">
+          <h2>Animals Available for Adoption</h2>
+          <p class="hint">View only — Admin & Foster staff manage this list.</p>
+          <div id="adopterPetList"></div>
+        </div>
+
+        <div class="card">
+          <h2>Submit Adoption Application</h2>
+          <label>Pet ID to Apply For:</label>
+          <input type="number" id="adopterPetId" value="1">
+          <button onclick="submitApplication()">Submit Application</button>
+          <pre id="adopterOutput">Awaiting action...</pre>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
-  function switchRole() {
-    const role = document.getElementById('userRole').value;
-    document.getElementById('tokenDisplay').textContent = `Active Token: Bearer ${role}-secret-token`;
-    showWorkspace(role);
+  // ---------------------------------------------------------
+  // SESSION STATE
+  // ---------------------------------------------------------
+  let session = null; // { token, user: { id, username, role, fosterId } }
+
+  function loadSession() {
+    const raw = localStorage.getItem('petPlatformSession');
+    if (raw) {
+      try { session = JSON.parse(raw); } catch (e) { session = null; }
+    }
+  }
+
+  function saveSession() {
+    localStorage.setItem('petPlatformSession', JSON.stringify(session));
+  }
+
+  function clearSession() {
+    session = null;
+    localStorage.removeItem('petPlatformSession');
+  }
+
+  async function apiFetch(path, options = {}) {
+    options.headers = options.headers || {};
+    if (options.body) options.headers['Content-Type'] = 'application/json';
+    if (session && session.token) options.headers['Authorization'] = `Bearer ${session.token}`;
+    const res = await fetch(path, options);
+    if (res.status === 401) {
+      clearSession();
+      renderAuthState();
+      throw new Error('Session expired. Please log in again.');
+    }
+    return res;
+  }
+
+  // ---------------------------------------------------------
+  // AUTH FORM UI
+  // ---------------------------------------------------------
+  function showAuthForm(which) {
+    document.getElementById('loginForm').style.display = which === 'login' ? 'block' : 'none';
+    document.getElementById('signupForm').style.display = which === 'signup' ? 'block' : 'none';
+    document.getElementById('toggleLogin').classList.toggle('active', which === 'login');
+    document.getElementById('toggleSignup').classList.toggle('active', which === 'signup');
+  }
+
+  async function doSignup() {
+    const username = document.getElementById('signupUsername').value.trim();
+    const password = document.getElementById('signupPassword').value;
+    const errEl = document.getElementById('signupError');
+    errEl.textContent = '';
+    try {
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Sign up failed.');
+      showAuthForm('login');
+      document.getElementById('loginUsername').value = username;
+      document.getElementById('loginError').textContent = 'Account created — please log in.';
+    } catch (err) {
+      errEl.textContent = err.message;
+    }
+  }
+
+  async function doLogin() {
+    const username = document.getElementById('loginUsername').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const errEl = document.getElementById('loginError');
+    errEl.textContent = '';
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Login failed.');
+      session = data;
+      saveSession();
+      renderAuthState();
+    } catch (err) {
+      errEl.textContent = err.message;
+    }
+  }
+
+  function logout() {
+    clearSession();
+    renderAuthState();
+  }
+
+  // ---------------------------------------------------------
+  // ROLE-GATED DASHBOARD RENDERING
+  //   Only the workspace matching the user's own role is shown.
+  //   (Admin gets the Admin tab only, Foster gets Foster only, etc.)
+  // ---------------------------------------------------------
+  function renderAuthState() {
+    if (session && session.token) {
+      document.getElementById('authGate').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      document.getElementById('sessionInfo').textContent =
+        `Logged in as ${session.user.username} (${session.user.role})`;
+
+      // Show only the nav tab / workspace for this user's role
+      document.getElementById('btn-admin').style.display = session.user.role === 'admin' ? 'block' : 'none';
+      document.getElementById('btn-foster').style.display = session.user.role === 'foster' ? 'block' : 'none';
+      document.getElementById('btn-adopter').style.display = session.user.role === 'adopter' ? 'block' : 'none';
+
+      showWorkspace(session.user.role);
+      refreshPetLists();
+    } else {
+      document.getElementById('authGate').style.display = 'block';
+      document.getElementById('dashboard').style.display = 'none';
+    }
   }
 
   function showWorkspace(role) {
+    // Defense in depth: only ever show the workspace matching the logged-in role,
+    // regardless of what's passed in.
+    const actualRole = session ? session.user.role : role;
     document.querySelectorAll('.workspace').forEach(w => w.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    
-    document.getElementById(`workspace-${role}`).classList.add('active');
-    document.getElementById(`btn-${role}`).classList.add('active');
+    document.getElementById(`workspace-${actualRole}`).classList.add('active');
+    const btn = document.getElementById(`btn-${actualRole}`);
+    if (btn) btn.classList.add('active');
   }
 
-  // Helper function to render styled HTML output instead of raw JSON
   function renderOutput(elementId, message, isError = false) {
     const el = document.getElementById(elementId);
     el.style.color = isError ? '#e74c3c' : '#2ecc71';
     el.innerHTML = `<strong>${message}</strong>`;
   }
 
-  async function updatePetStatus() {
-    const newStatus = document.getElementById('fsmStatus').value;
-    const res = await fetch('/api/pets/1/transition', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ newStatus })
+  // ---------------------------------------------------------
+  // ANIMAL DIRECTORY — shared fetch, rendered differently per role
+  // ---------------------------------------------------------
+  async function refreshPetLists() {
+    if (!session) return;
+    const res = await apiFetch('/api/pets');
+    const pets = await res.json();
+
+    if (session.user.role === 'admin') renderAdminPetList(pets, 'adminPetList');
+    if (session.user.role === 'foster') renderAdminPetList(pets, 'fosterPetList');
+    if (session.user.role === 'adopter') renderAdopterPetList(pets);
+  }
+
+  function renderAdminPetList(pets, containerId) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = pets.map(p => `
+      <div class="pet-row">
+        <span>#${p.id} <strong>${p.name}</strong> — ${p.weightKg}kg</span>
+        <span class="status">${p.status}</span>
+      </div>
+      <div>
+        <button class="icon-btn secondary" onclick="editPetName(${p.id})">Edit Name</button>
+        <button class="icon-btn danger" onclick="deletePet(${p.id})">Delete</button>
+      </div>
+    `).join('') || '<p>No animals yet.</p>';
+  }
+
+  function renderAdopterPetList(pets) {
+    const container = document.getElementById('adopterPetList');
+    container.innerHTML = pets.map(p => `
+      <div class="pet-row">
+        <span>#${p.id} <strong>${p.name}</strong> — ${p.weightKg}kg</span>
+        <span class="status">${p.status}</span>
+      </div>
+    `).join('') || '<p>No animals currently available for adoption.</p>';
+  }
+
+  async function addPet(scope) {
+    const prefix = scope === 'foster' ? 'f' : '';
+    const name = document.getElementById(`${prefix}NewPetName`).value || document.getElementById('newPetName').value;
+    const weightKg = document.getElementById(`${prefix}NewPetWeight`) ? document.getElementById(`${prefix}NewPetWeight`).value : document.getElementById('newPetWeight').value;
+    const latitude = document.getElementById(`${prefix}NewPetLat`) ? document.getElementById(`${prefix}NewPetLat`).value : document.getElementById('newPetLat').value;
+    const longitude = document.getElementById(`${prefix}NewPetLon`) ? document.getElementById(`${prefix}NewPetLon`).value : document.getElementById('newPetLon').value;
+
+    const res = await apiFetch('/api/pets', {
+      method: 'POST',
+      body: JSON.stringify({ name, weightKg: parseFloat(weightKg), latitude: parseFloat(latitude), longitude: parseFloat(longitude) })
     });
+    if (res.ok) refreshPetLists();
+    else { const d = await res.json(); alert(d.error); }
+  }
+
+  async function editPetName(id) {
+    const newName = prompt('New name for this animal:');
+    if (!newName) return;
+    const res = await apiFetch(`/api/pets/${id}`, { method: 'PATCH', body: JSON.stringify({ name: newName }) });
+    if (res.ok) refreshPetLists();
+    else { const d = await res.json(); alert(d.error); }
+  }
+
+  async function deletePet(id) {
+    if (!confirm('Delete this animal record?')) return;
+    const res = await apiFetch(`/api/pets/${id}`, { method: 'DELETE' });
+    if (res.ok) refreshPetLists();
+    else { const d = await res.json(); alert(d.error); }
+  }
+
+  // ---------------------------------------------------------
+  // ADMIN WORKSPACE ACTIONS
+  // ---------------------------------------------------------
+  async function updatePetStatus() {
+    const petId = document.getElementById('fsmPetId').value;
+    const newStatus = document.getElementById('fsmStatus').value;
+    const res = await apiFetch(`/api/pets/${petId}/transition`, { method: 'PATCH', body: JSON.stringify({ newStatus }) });
     const data = await res.json();
-    if (res.ok) {
-      renderOutput('fsmOutput', `Status updated to: ${data.pet.status}`);
-    } else {
-      renderOutput('fsmOutput', `Error: ${data.error}`, true);
-    }
+    if (res.ok) { renderOutput('fsmOutput', `Status updated to: ${data.pet.status}`); refreshPetLists(); }
+    else renderOutput('fsmOutput', `Error: ${data.error}`, true);
   }
 
   async function advancePipeline() {
+    const appId = document.getElementById('appId').value;
     const newStage = document.getElementById('appStage').value;
-    const res = await fetch('/api/applications/1/advance', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ newStage })
-    });
+    const res = await apiFetch(`/api/applications/${appId}/advance`, { method: 'PATCH', body: JSON.stringify({ newStage }) });
     const data = await res.json();
-    if (res.ok) {
-      renderOutput('pipelineOutput', `Pipeline stage moved to: ${data.application.stage}`);
-    } else {
-      renderOutput('pipelineOutput', `Error: ${data.error}`, true);
-    }
+    if (res.ok) renderOutput('pipelineOutput', `Pipeline stage moved to: ${data.application.stage}`);
+    else renderOutput('pipelineOutput', `Error: ${data.error}`, true);
   }
 
   async function runMatching() {
-    const res = await fetch('/api/pets/1/matches');
+    const petId = document.getElementById('matchPetId').value;
+    const res = await apiFetch(`/api/pets/${petId}/matches`);
     const data = await res.json();
     const container = document.getElementById('matchOutput');
-    
     if (data.matches && data.matches.length > 0) {
-      container.innerHTML = data.matches.map(m => 
+      container.innerHTML = data.matches.map(m =>
         `<div style="color: #48dbfb;">• <strong>${m.fosterName}</strong> (Score: ${m.compatibilityScore}, Distance: ${m.distanceKm})</div>`
       ).join('');
     } else {
@@ -194,26 +450,27 @@
     }
   }
 
+  // ---------------------------------------------------------
+  // FOSTER WORKSPACE ACTIONS
+  // ---------------------------------------------------------
   async function addMedicalLog() {
+    const petId = document.getElementById('medPetId').value;
     const medicationName = document.getElementById('medName').value;
     const dosage = document.getElementById('medDosage').value;
-    const res = await fetch('/api/medical-logs', {
+    const res = await apiFetch('/api/medical-logs', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ petId: 1, medicationName, dosage, notes: "Administered by Foster" })
+      body: JSON.stringify({ petId: parseInt(petId), medicationName, dosage, notes: "Administered by Foster" })
     });
-    if (res.ok) {
-      renderOutput('medicalOutput', `Logged: ${medicationName} (${dosage})`);
-    } else {
-      renderOutput('medicalOutput', 'Failed to log medical record', true);
-    }
+    if (res.ok) renderOutput('medicalOutput', `Logged: ${medicationName} (${dosage})`);
+    else renderOutput('medicalOutput', 'Failed to log medical record', true);
   }
 
   async function viewMedicalLogs() {
-    const res = await fetch('/api/medical-logs/1');
+    const petId = document.getElementById('medPetId').value;
+    const res = await apiFetch(`/api/medical-logs/${petId}`);
     const data = await res.json();
     const container = document.getElementById('medicalOutput');
-    container.innerHTML = data.map(log => 
+    container.innerHTML = data.map(log =>
       `<div style="color: #f1c40f;">• ${log.medicationName} - ${log.dosage} (${new Date(log.createdAt).toLocaleTimeString()})</div>`
     ).join('') || 'No records found.';
   }
@@ -221,40 +478,41 @@
   async function requestSupply() {
     const itemType = document.getElementById('supplyItem').value;
     const quantity = document.getElementById('supplyQty').value;
-    const res = await fetch('/api/supply-requests', {
+    const res = await apiFetch('/api/supply-requests', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fosterId: 1, itemType, quantity })
+      body: JSON.stringify({ fosterId: session.user.fosterId || 1, itemType, quantity })
     });
-    if (res.ok) {
-      renderOutput('supplyOutput', `Requested ${quantity}x ${itemType}`);
-    } else {
-      renderOutput('supplyOutput', 'Failed to submit order', true);
-    }
+    if (res.ok) renderOutput('supplyOutput', `Requested ${quantity}x ${itemType}`);
+    else renderOutput('supplyOutput', 'Failed to submit order', true);
   }
 
   async function findNearbyHubs() {
-    const res = await fetch('/api/supply-hubs?lat=23.8103&lon=90.4125&radiusKm=5');
+    const res = await apiFetch('/api/supply-hubs?lat=23.8103&lon=90.4125&radiusKm=5');
     const data = await res.json();
     const container = document.getElementById('hubOutput');
-    container.innerHTML = data.map(hub => 
+    container.innerHTML = data.map(hub =>
       `<div style="color: #1dd1a1;">• <strong>${hub.name}</strong> - ${hub.address} (${hub.distanceKm} km away)</div>`
     ).join('') || 'No hubs within range.';
   }
 
+  // ---------------------------------------------------------
+  // ADOPTER WORKSPACE ACTIONS
+  // ---------------------------------------------------------
   async function submitApplication() {
-    const adopterName = document.getElementById('adopterName').value;
-    const res = await fetch('/api/applications', {
+    const petId = document.getElementById('adopterPetId').value;
+    const res = await apiFetch('/api/applications', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adopterName, petId: 1 })
+      body: JSON.stringify({ petId: parseInt(petId) })
     });
-    if (res.ok) {
-      renderOutput('adopterOutput', `Application submitted for ${adopterName}!`);
-    } else {
-      renderOutput('adopterOutput', 'Failed to submit application', true);
-    }
+    if (res.ok) renderOutput('adopterOutput', `Application submitted for pet #${petId}!`);
+    else { const d = await res.json(); renderOutput('adopterOutput', d.error || 'Failed to submit application', true); }
   }
-</script>
+
+  // ---------------------------------------------------------
+  // INIT
+  // ---------------------------------------------------------
+  loadSession();
+  renderAuthState();
+  </script>
 </body>
 </html>
