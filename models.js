@@ -72,4 +72,20 @@ const StateLog = sequelize.define('StateLog', {
   timestamp: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
 });
 
-module.exports = { sequelize, Pet, Foster, Application, MedicalLog, SupplyRequest, SupplyHub, StateLog };
+// User Accounts (Login / Access Control)
+// - role "adopter": created via public self-signup
+// - role "admin" / "foster": created only by DB seeding (no public signup) —
+//   these users log in with the numeric account ID + password given to them
+const User = sequelize.define('User', {
+  username: { type: DataTypes.STRING, allowNull: false, unique: true },
+  passwordHash: { type: DataTypes.STRING, allowNull: false },
+  role: {
+    type: DataTypes.ENUM('admin', 'foster', 'adopter'),
+    allowNull: false,
+    defaultValue: 'adopter'
+  },
+  // Optional link so a "foster" login is tied to their Foster profile/record
+  fosterId: { type: DataTypes.INTEGER, allowNull: true }
+});
+
+module.exports = { sequelize, Pet, Foster, Application, MedicalLog, SupplyRequest, SupplyHub, StateLog, User };
